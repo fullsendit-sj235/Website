@@ -1,43 +1,39 @@
-import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { motion } from 'framer-motion';
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { ENERGY_SOURCE_STYLES } from '../data/sources';
+import type { EnergyMixSlice } from '../types/energy';
 
-interface Props {
-  data: Array<{
-    name: string;
-    value: number;
-    color: string;
-  }>;
+interface EnergyMixChartProps {
+  readonly mix: readonly EnergyMixSlice[];
 }
 
-export const EnergyMixChart: React.FC<Props> = ({ data }) => {
+export function EnergyMixChart({ mix }: EnergyMixChartProps) {
+  const data = mix.map((slice) => ({
+    name: ENERGY_SOURCE_STYLES[slice.source].label,
+    value: slice.share,
+    color: ENERGY_SOURCE_STYLES[slice.source].color,
+  }));
+
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="h-[300px] w-full"
-    >
+    <div className="h-72 w-full" role="img" aria-label="Donut chart of the city's energy mix">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={80}
-            fill="#8884d8"
-            paddingAngle={5}
             dataKey="value"
+            nameKey="name"
+            innerRadius="58%"
+            outerRadius="80%"
+            paddingAngle={3}
+            stroke="none"
           >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
+            {data.map((entry) => (
+              <Cell key={entry.name} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip />
-          <Legend />
+          <Tooltip formatter={(value) => `${String(value)}%`} />
+          <Legend iconType="circle" />
         </PieChart>
       </ResponsiveContainer>
-    </motion.div>
+    </div>
   );
-};
+}

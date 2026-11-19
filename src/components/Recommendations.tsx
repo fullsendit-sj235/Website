@@ -1,80 +1,71 @@
-import React from 'react';
-import { Sun, Wind, Lightbulb } from 'lucide-react';
+import { Check } from 'lucide-react';
+import type { Recommendation } from '../data/recommendations';
+import { assertNever } from '../lib/assertNever';
+import { paybackYears } from '../lib/energy';
+import { formatCurrency, formatYears } from '../lib/format';
+import { TONES } from './ui/tones';
 
-export const Recommendations = () => {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div className="bg-white rounded-xl p-6 shadow-sm">
-        <div className="p-3 bg-yellow-100 rounded-lg w-fit">
-          <Sun className="w-6 h-6 text-yellow-600" />
-        </div>
-        <h3 className="text-lg font-semibold mt-4 mb-2">Solar Installation</h3>
-        <p className="text-gray-600 mb-4">
-          Installing solar panels could reduce your energy bills by up to 50%
-        </p>
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Initial Cost</span>
-            <span className="font-semibold">$12,000</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span>Annual Savings</span>
-            <span className="font-semibold">$1,800</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span>Break-even</span>
-            <span className="font-semibold">6.7 years</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl p-6 shadow-sm">
-        <div className="p-3 bg-blue-100 rounded-lg w-fit">
-          <Wind className="w-6 h-6 text-blue-600" />
-        </div>
-        <h3 className="text-lg font-semibold mt-4 mb-2">Wind Energy</h3>
-        <p className="text-gray-600 mb-4">
-          Small wind turbines can supplement your energy needs
-        </p>
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Initial Cost</span>
-            <span className="font-semibold">$8,000</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span>Annual Savings</span>
-            <span className="font-semibold">$1,200</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span>Break-even</span>
-            <span className="font-semibold">6.7 years</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl p-6 shadow-sm">
-        <div className="p-3 bg-green-100 rounded-lg w-fit">
-          <Lightbulb className="w-6 h-6 text-green-600" />
-        </div>
-        <h3 className="text-lg font-semibold mt-4 mb-2">Energy Efficiency</h3>
-        <p className="text-gray-600 mb-4">
-          Simple changes that can reduce your energy consumption
-        </p>
-        <ul className="space-y-2 text-sm text-gray-600">
-          <li className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-            Replace old appliances with energy-efficient models
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-            Install LED lighting throughout your home
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-            Improve home insulation
-          </li>
+function RecommendationDetails({ recommendation }: { readonly recommendation: Recommendation }) {
+  switch (recommendation.kind) {
+    case 'investment': {
+      const { upfrontCost, annualSavings } = recommendation;
+      const rows = [
+        ['Upfront cost', formatCurrency(upfrontCost)],
+        ['Annual savings', formatCurrency(annualSavings)],
+        ['Payback', formatYears(paybackYears(upfrontCost, annualSavings))],
+      ] as const;
+      return (
+        <dl className="space-y-2 text-sm">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex justify-between">
+              <dt className="text-slate-500">{label}</dt>
+              <dd className="font-semibold tabular-nums text-slate-900">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      );
+    }
+    case 'tips':
+      return (
+        <ul className="space-y-2 text-sm text-slate-600">
+          {recommendation.tips.map((tip) => (
+            <li key={tip} className="flex gap-2">
+              <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+              {tip}
+            </li>
+          ))}
         </ul>
-      </div>
-    </div>
+      );
+    default:
+      return assertNever(recommendation);
+  }
+}
+
+interface RecommendationsProps {
+  readonly items: readonly Recommendation[];
+}
+
+export function Recommendations({ items }: RecommendationsProps) {
+  return (
+    <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <li
+            key={item.id}
+            className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm"
+          >
+            <span className={`w-fit rounded-xl p-3 ${TONES[item.tone].badge}`}>
+              <Icon aria-hidden className={`h-6 w-6 ${TONES[item.tone].text}`} />
+            </span>
+            <h3 className="mb-1 mt-4 text-base font-semibold text-slate-900">{item.title}</h3>
+            <p className="mb-5 text-sm text-slate-500">{item.summary}</p>
+            <div className="mt-auto border-t border-slate-100 pt-4">
+              <RecommendationDetails recommendation={item} />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
-};
+}

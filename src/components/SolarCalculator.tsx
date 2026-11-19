@@ -1,71 +1,95 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Sun, Battery } from 'lucide-react';
+import { Battery, Calculator, Sun } from 'lucide-react';
+import { useId, useState } from 'react';
+import { sizeSolarSystem } from '../lib/energy';
+import { Card } from './ui/Card';
 
-export const SolarCalculator: React.FC = () => {
-  const [consumption, setConsumption] = useState(30);
-  const [sunlightHours, setSunlightHours] = useState(5);
+interface RangeFieldProps {
+  readonly label: string;
+  readonly value: number;
+  readonly min: number;
+  readonly max: number;
+  readonly unit: string;
+  readonly onChange: (value: number) => void;
+}
 
-  const panelArea = Math.ceil((consumption * 1000) / (sunlightHours * 150));
-  const batterySize = Math.ceil((consumption * 1.5) / 0.8);
+function RangeField({ label, value, min, max, unit, onChange }: RangeFieldProps) {
+  const id = useId();
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between">
+        <label htmlFor={id} className="text-sm font-medium text-slate-700">
+          {label}
+        </label>
+        <output htmlFor={id} className="text-sm font-semibold tabular-nums text-slate-900">
+          {value} {unit}
+        </output>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => {
+          onChange(Number(event.target.value));
+        }}
+        className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-blue-600"
+      />
+    </div>
+  );
+}
+
+export function SolarCalculator() {
+  const [dailyConsumption, setDailyConsumption] = useState(30);
+  const [sunHours, setSunHours] = useState(5);
+  const { panelArea, batteryCapacity } = sizeSolarSystem({ dailyConsumption, sunHours });
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl p-6 shadow-sm"
+    <Card
+      title="Solar sizing calculator"
+      description="Estimate the system you'd need to go solar"
+      icon={Calculator}
+      tone="amber"
     >
-      <h2 className="text-lg font-semibold mb-6">Solar Installation Calculator</h2>
-
       <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Daily Energy Consumption (kWh)
-          </label>
-          <input
-            type="range"
-            min="10"
-            max="100"
-            value={consumption}
-            onChange={(e) => setConsumption(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
-          <p className="mt-2 text-sm text-gray-600">{consumption} kWh</p>
-        </div>
+        <RangeField
+          label="Daily energy use"
+          value={dailyConsumption}
+          min={10}
+          max={100}
+          unit="kWh"
+          onChange={setDailyConsumption}
+        />
+        <RangeField
+          label="Average sunlight"
+          value={sunHours}
+          min={3}
+          max={8}
+          unit="hours"
+          onChange={setSunHours}
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Average Daily Sunlight Hours
-          </label>
-          <input
-            type="range"
-            min="3"
-            max="8"
-            value={sunlightHours}
-            onChange={(e) => setSunlightHours(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
-          <p className="mt-2 text-sm text-gray-600">{sunlightHours} hours</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Sun className="w-5 h-5 text-yellow-600" />
-              <h3 className="font-medium">Required Panel Area</h3>
-            </div>
-            <p className="text-2xl font-bold text-yellow-600">{panelArea} m²</p>
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-live="polite">
+          <div className="rounded-xl bg-amber-50 p-4">
+            <dt className="mb-1 flex items-center gap-2 text-sm font-medium text-amber-900">
+              <Sun aria-hidden className="h-4 w-4 text-amber-600" />
+              Panel area
+            </dt>
+            <dd className="text-2xl font-bold tabular-nums text-amber-600">{panelArea} m²</dd>
           </div>
-
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Battery className="w-5 h-5 text-blue-600" />
-              <h3 className="font-medium">Battery Capacity</h3>
-            </div>
-            <p className="text-2xl font-bold text-blue-600">{batterySize} kWh</p>
+          <div className="rounded-xl bg-blue-50 p-4">
+            <dt className="mb-1 flex items-center gap-2 text-sm font-medium text-blue-900">
+              <Battery aria-hidden className="h-4 w-4 text-blue-600" />
+              Battery capacity
+            </dt>
+            <dd className="text-2xl font-bold tabular-nums text-blue-600">{batteryCapacity} kWh</dd>
           </div>
-        </div>
+        </dl>
+        <p className="text-xs text-slate-400">
+          Assumes 150 W/m² effective panel output, 1.5 days of battery backup and 80% usable battery
+          capacity.
+        </p>
       </div>
-    </motion.div>
+    </Card>
   );
-};
+}

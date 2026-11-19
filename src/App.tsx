@@ -1,91 +1,82 @@
-import React from 'react';
-import { LayoutDashboard, User, Lightbulb } from 'lucide-react';
-import { EnergyMixChart } from './components/EnergyMixChart';
-import { RenewableAvailability } from './components/RenewableAvailability';
-import { UserConsumption } from './components/UserConsumption';
-import { Recommendations } from './components/Recommendations';
-import { CarbonFootprint } from './components/CarbonFootprint';
-import { SolarCalculator } from './components/SolarCalculator';
+import { LayoutDashboard, User } from 'lucide-react';
+import { Suspense, lazy } from 'react';
+import { Header, type TabDefinition } from './components/Header';
 import { useEnergyData } from './hooks/useEnergyData';
+import { useHashState } from './hooks/useHashState';
+import { panelId, tabId } from './lib/tabs';
 
-function App() {
-  const [activeTab, setActiveTab] = React.useState('dashboard');
-  const data = useEnergyData();
+// Each view is its own chunk, loaded the first time its tab opens.
+const CityDashboard = lazy(() => import('./views/CityDashboard'));
+const PersonalUsage = lazy(() => import('./views/PersonalUsage'));
 
+const TABS = [
+  { id: 'city', label: 'City dashboard', icon: LayoutDashboard },
+  { id: 'personal', label: 'Personal usage', icon: User },
+] as const satisfies readonly TabDefinition<string>[];
+
+type TabId = (typeof TABS)[number]['id'];
+const TAB_IDS: readonly TabId[] = TABS.map((tab) => tab.id);
+
+const PAGE_COPY: Record<TabId, { title: string; subtitle: string }> = {
+  city: {
+    title: 'City energy overview',
+    subtitle: 'How the city is powered and when renewables are available.',
+  },
+  personal: {
+    title: 'Your household energy',
+    subtitle: 'Track usage, see your footprint and size a solar system.',
+  },
+};
+
+function ViewFallback() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <Lightbulb className="w-8 h-8 text-blue-600" />
-                <span className="ml-2 text-xl font-bold text-gray-900">EnergyVision</span>
-              </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <button
-                  onClick={() => setActiveTab('dashboard')}
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    activeTab === 'dashboard'
-                      ? 'border-blue-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  <LayoutDashboard className="w-4 h-4 mr-2" />
-                  City Dashboard
-                </button>
-                <button
-                  onClick={() => setActiveTab('personal')}
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    activeTab === 'personal'
-                      ? 'border-blue-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Personal Usage
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'dashboard' ? (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold mb-4">Energy Mix</h2>
-                <EnergyMixChart data={data.cityMix} />
-              </div>
-              <div className="bg-white rounded-xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold mb-4">Renewable Energy Availability</h2>
-                <RenewableAvailability data={data.renewable} />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <UserConsumption 
-              data={{
-                consumption: data.userConsumption,
-                metrics: data.metrics
-              }} 
-            />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <CarbonFootprint carbonData={data.carbonFootprint} />
-              <SolarCalculator />
-            </div>
-            <div className="mt-8">
-              <h2 className="text-lg font-semibold mb-6">Recommendations</h2>
-              <Recommendations />
-            </div>
-          </div>
-        )}
-      </main>
+    <div className="grid gap-6 lg:grid-cols-2" aria-busy="true" aria-label="Loading view">
+      {[0, 1].map((i) => (
+        <div key={i} className="h-80 animate-pulse rounded-2xl bg-slate-200/60" />
+      ))}
     </div>
   );
 }
 
-export default App;
+export default function App() {
+  const [activeTab, setActiveTab] = useHashState<TabId>(TAB_IDS, 'city');
+  const snapshot = useEnergyData();
+  const copy = PAGE_COPY[activeTab];
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Header
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        updatedAt={snapshot.updatedAt}
+      />
+
+      <main
+        id={panelId(activeTab)}
+        role="tabpanel"
+        aria-labelledby={tabId(activeTab)}
+        className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
+      >
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            {copy.title}
+          </h1>
+          <p className="mt-1 text-slate-500">{copy.subtitle}</p>
+        </div>
+
+        <Suspense fallback={<ViewFallback />}>
+          {activeTab === 'city' ? (
+            <CityDashboard snapshot={snapshot} />
+          ) : (
+            <PersonalUsage snapshot={snapshot} />
+          )}
+        </Suspense>
+      </main>
+
+      <footer className="mx-auto max-w-7xl px-4 pb-10 text-xs text-slate-400 sm:px-6 lg:px-8">
+        All figures are simulated for demonstration purposes.
+      </footer>
+    </div>
+  );
+}
